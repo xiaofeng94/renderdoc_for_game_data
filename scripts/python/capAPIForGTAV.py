@@ -9,6 +9,11 @@ os.environ["PATH"] += os.pathsep + os.path.abspath('E:/renderdoc/x64/Release')
 
 import renderdoc as rd
 import numpy as np
+import OpenEXR, Imath
+import os.path
+import scipy.io as sio
+
+import time
 
 class GTA5Capture(object):
   """docstring for GTA5Capture"""
@@ -108,6 +113,10 @@ class GTA5Capture(object):
 
 
   def getProjMatrix(self):
+    if self.controller is None:
+      print('open log file first.')
+      return
+
     if self.projMat[0,0] == 0:
       passNum = 4
       potentialPos = [i for i,call in enumerate(self.drawcalls) if call.name.find('%d Targets + Depth)' % passNum) >= 0]
@@ -125,6 +134,10 @@ class GTA5Capture(object):
 
 
   def computeProjMat(self):
+    if self.controller is None:
+      print('open log file first.')
+      return
+
     state = self.controller.GetPipelineState()
     entry = state.GetShaderEntryPoint(rd.ShaderStage.Pixel)
     ps = state.GetShaderReflection(rd.ShaderStage.Pixel)
@@ -134,8 +147,7 @@ class GTA5Capture(object):
 
     PVW = np.zeros([4,4])  # gWorldViewProj
     VW = np.zeros([4,4])   # gWorldView
-    hasPVW = False
-    hasVW = False
+    hasPVW, hasVW = False, False
 
     for v in cbufferVars:
       if v.name == 'gWorldViewProj':
@@ -151,7 +163,7 @@ class GTA5Capture(object):
             VW[col, row] = v.value.fv[row*v.columns + col] 
 
     if hasPVW and hasVW:
-      self.projMat = np.array(np.mat(PVW)*np.mat(VW).I)
+      self.projMat = np.mat(PVW)*np.mat(VW).I
       # print('gWorldViewProj')
       # print(PVW)
       # print('gWorldView')
@@ -177,7 +189,7 @@ class GTA5Capture(object):
       saveData.destType = rd.FileType.DDS
 
     elif fileExt == 'png' or fileExt == 'PNG':
-      saveData.alpha = rd.AlphaMapping.Preserve
+      # saveData.alpha = rd.AlphaMapping.Preserve
       saveData.destType = rd.FileType.PNG
 
     elif fileExt == 'jpg' or fileExt == 'JPG':
@@ -207,4 +219,72 @@ class GTA5Capture(object):
     self.controller.SaveTexture(saveData, saveFile)
     return True
 
+  def computeDepth(self, DepthExrFile, saveFile):
+    exrFile = OpenEXR.InputFile(DepthExrFile)
 
+    dw = exrFile.header()['dataWindow']
+    size = (dw.max.x - dw.min.x + 1, dw.max.y - dw.min.y + 1)
+
+    pt = Imath.PixelType(Imath.PixelType.FLOAT)
+    depthstr = exrFile.channel('D', pt) # S for stencil and D for depth in channels
+    depthNDC = np.fromstring(depthstr, dtype = np.float32)
+
+    exrFile.close()
+
+    # convert NDC coordinate to camera coordinate and get depth
+    ############### version #2 end #################
+    # this is much faster (1.47s) than #1, 
+    # but the results are slight different
+    windCoords = np.mat(np.ones((4, size[1]*size[0])))
+    for x_i in range(size[1]):
+      for y_i in range(size[0]):
+        pos = x_i*size[0] + y_i
+        windCoords[0, pos] = x_i
+        windCoords[1, pos] = y_i
+        windCoords[2, pos] = depthNDC[pos]
+
+    wind2NDCMat = np.mat([[2/size[1], 0, 0, -1], 
+                          [0, -2/size[0], 0, 1],
+                          [0, 0, 1, 0],
+                          [0, 0, 0, 1]])
+    gProjMat = self.getProjMatrix()
+    gProjMatInv = gProjMat.I
+
+    camCoords = gProjMatInv*wind2NDCMat*windCoords # matrix dot
+    camCoords[0,:] = camCoords[0,:]/camCoords[3,:]
+    camCoords[1,:] = camCoords[1,:]/camCoords[3,:]
+    camCoords[2,:] = camCoords[2,:]/camCoords[3,:]
+
+    depth = np.linalg.norm(camCoords, axis=0)
+    depth.shape = (size[1], size[0])
+    ############### version #2 end #################
+
+
+    # ############### version #1 #################
+    # depthNDC.shape = (size[1], size[0]) # Numpy arrays are (row, col)
+
+    # depth = np.zeros(depthNDC.shape)
+
+    # gProjMat = self.getProjMatrix()
+    # gProjMatInv = gProjMat.I
+
+    # ndcCoord = np.mat(np.ones([4,1]))  # last item is 1
+    # for x_i in range(size[1]):
+    #   # this loop cost around 0.0312s
+    #   for y_i in range(size[0]):
+    #     xNDC = x_i*2/size[1] - 1
+    #     yNDC = 1 - y_i*2/size[0]
+
+    #     ndcCoord[0,0] = xNDC
+    #     ndcCoord[1,0] = yNDC
+    #     ndcCoord[2,0] = depthNDC[x_i, y_i]
+
+    #     start1 = time.time()
+    #     camCoord = gProjMatInv*ndcCoord
+    #     camCoord = camCoord/camCoord[3,0]
+    #     # print('matrix time: ',time.time()-start1)
+
+    #     depth[x_i, y_i] = np.linalg.norm(camCoord[:3])
+    ############### version #1 end #################
+
+    sio.savemat(saveFile, {'depth':depth})

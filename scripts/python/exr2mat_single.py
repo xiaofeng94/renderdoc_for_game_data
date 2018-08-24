@@ -6,7 +6,7 @@ import scipy.io as sio
 import numpy as np
 
 depth_save_root = 'E:/GTAVTempCaptures/'
-exr_depth_file = 'E:/GTAVTempCaptures/py1.exr'
+exr_depth_file = 'E:/GTAVTempCaptures/frame9207.exr'
 filePrefix = 'py1'
 
 exrFile = OpenEXR.InputFile(exr_depth_file)
