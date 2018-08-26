@@ -30,7 +30,7 @@ class GTA5Capture(object):
       self.closeLogFile()
 
     self.fileName = filename
-    print(self.fileName)
+    # print(self.fileName)
 
     # Open a particular file - see also OpenBuffer to load from memory
     status = self.cap.OpenFile(filename, '', None)
@@ -58,6 +58,7 @@ class GTA5Capture(object):
     self.isOpen = False
 
   def finishCapture(self):
+    self.closeLogFile()
     self.cap.Shutdown()
 
 
@@ -287,4 +288,4 @@ class GTA5Capture(object):
     #     depth[x_i, y_i] = np.linalg.norm(camCoord[:3])
     ############### version #1 end #################
 
-    sio.savemat(saveFile, {'depth':depth})
+    sio.savemat(saveFile, {'depth':depth, 'gProjMat': gProjMat})

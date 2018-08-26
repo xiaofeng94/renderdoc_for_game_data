@@ -526,6 +526,11 @@ public:
 
   const vector<RENDERDOC_InputButton> &GetFocusKeys() { return m_FocusKeys; }
   const vector<RENDERDOC_InputButton> &GetCaptureKeys() { return m_CaptureKeys; }
+  // added by zsy | begin
+  const vector<RENDERDOC_InputButton> &GetAutoCapOnKeys() { return m_AutoCapOnKeys; }
+  const vector<RENDERDOC_InputButton> &GetAutoCapOffKeys() { return m_AutoCapOffKeys; }
+  // added by zsy | end
+
   bool ShouldTriggerCapture(uint32_t frameNumber);
 
   enum
@@ -548,6 +553,11 @@ private:
 
   vector<RENDERDOC_InputButton> m_FocusKeys;
   vector<RENDERDOC_InputButton> m_CaptureKeys;
+
+  // added by zsy | begin
+  vector<RENDERDOC_InputButton> m_AutoCapOnKeys;
+  vector<RENDERDOC_InputButton> m_AutoCapOffKeys;
+  // added by zsy | end
 
   GlobalEnvironment m_GlobalEnv;
 

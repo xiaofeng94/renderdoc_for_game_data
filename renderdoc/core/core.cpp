@@ -218,6 +218,14 @@ RenderDoc::RenderDoc()
   m_CaptureKeys.push_back(eRENDERDOC_Key_F12);
   m_CaptureKeys.push_back(eRENDERDOC_Key_PrtScrn);
 
+  // added by zsy | begin
+  m_AutoCapOnKeys.clear();
+  m_AutoCapOnKeys.push_back(eRENDERDOC_Key_F10);
+
+  m_AutoCapOffKeys.clear();
+  m_AutoCapOffKeys.push_back(eRENDERDOC_Key_F11);
+  // added by zsy | end
+
   m_ExHandler = NULL;
 
   m_Overlay = eRENDERDOC_Overlay_Default;
@@ -527,6 +535,10 @@ void RenderDoc::Tick()
 {
   static bool prev_focus = false;
   static bool prev_cap = false;
+  
+  // modified by zsy | begin
+  static bool auto_caps_state = false;
+  static uint32_t caps_interval_count = 0;
 
   bool cur_focus = false;
   for(size_t i = 0; i < m_FocusKeys.size(); i++)
@@ -535,6 +547,26 @@ void RenderDoc::Tick()
   bool cur_cap = false;
   for(size_t i = 0; i < m_CaptureKeys.size(); i++)
     cur_cap |= Keyboard::GetKeyState(m_CaptureKeys[i]);
+
+  bool cur_caps_state = false;
+  for (size_t i = 0;i < m_AutoCapOnKeys.size(); ++i)
+  {
+      cur_caps_state |= Keyboard::GetKeyState(m_AutoCapOnKeys[i]);
+  }
+  if (cur_caps_state)
+  {
+      auto_caps_state = true;
+      caps_interval_count = 0;
+  }
+  bool caps_off_state = false;
+  for (size_t i = 0;i < m_AutoCapOffKeys.size(); ++i)
+  {
+      caps_off_state |= Keyboard::GetKeyState(m_AutoCapOffKeys[i]);
+  }
+  if (caps_off_state)
+  {
+      auto_caps_state = false;
+  }
 
   m_FrameTimer.UpdateTimers();
 
@@ -562,10 +594,24 @@ void RenderDoc::Tick()
       }
     }
   }
-  if(!prev_cap && cur_cap)
+  
+  if (auto_caps_state)
   {
-    TriggerCapture(1);
+      if (caps_interval_count % 59 == 0)
+      {
+          TriggerCapture(1);
+          caps_interval_count = 0;
+      }
+      ++caps_interval_count;
   }
+  else
+  {
+      if (!prev_cap && cur_cap)
+      {
+          TriggerCapture(1);
+      }
+  }
+  // modified by zsy | begin
 
   prev_focus = cur_focus;
   prev_cap = cur_cap;
@@ -583,6 +629,10 @@ string RenderDoc::GetOverlayText(RDCDriver driver, uint32_t frameNumber, int fla
   if(activeWindow)
   {
     vector<RENDERDOC_InputButton> keys = GetCaptureKeys();
+    // added by zsy | begin
+    vector<RENDERDOC_InputButton> autoOnkeys = GetAutoCapOnKeys();
+    vector<RENDERDOC_InputButton> autoOffkeys = GetAutoCapOffKeys();
+    // added by zsy | end
 
     if(capturesEnabled)
     {
@@ -597,7 +647,30 @@ string RenderDoc::GetOverlayText(RDCDriver driver, uint32_t frameNumber, int fla
         }
 
         if(!keys.empty())
-          overlayText += " to capture.";
+          overlayText += " to capture. ";
+
+        // added by zsy | begin
+        for (size_t i = 0; i < autoOnkeys.size(); i++)
+        {
+            if (i > 0)
+                overlayText += ", ";
+
+            overlayText += ToStr(autoOnkeys[i]);
+        }
+        if (!autoOnkeys.empty())
+            overlayText += " to open auto capture, ";
+
+        for (size_t i = 0; i < autoOffkeys.size(); i++)
+        {
+            if (i > 0)
+                overlayText += ", ";
+
+            overlayText += ToStr(autoOffkeys[i]);
+        }
+        if (!autoOffkeys.empty())
+            overlayText += " to close.";
+
+        // added by zsy | end
       }
       else
       {
