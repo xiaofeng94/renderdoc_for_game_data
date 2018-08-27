@@ -7,13 +7,16 @@ import os
 sys.path.append('E:\\renderdoc\\x64\\Release\\pymodules')
 os.environ["PATH"] += os.pathsep + os.path.abspath('E:/renderdoc/x64/Release')
 
-import renderdoc as rd
-import numpy as np
-import OpenEXR, Imath
-import os.path
-import scipy.io as sio
-
 import time
+import threading
+# import os.path
+
+import numpy as np
+import scipy.io as sio
+import OpenEXR, Imath
+
+import renderdoc as rd
+
 
 class GTA5Capture(object):
   """docstring for GTA5Capture"""
@@ -169,9 +172,9 @@ class GTA5Capture(object):
       # print(PVW)
       # print('gWorldView')
       # print(VW)
-      print('gProj')
-      print(self.projMat)
-      print('--- end --')
+      # print('gProj')
+      # print(self.projMat)
+      # print('--- end --')
 
 
   def saveTexture(self, ResourceId, saveFile):
@@ -289,3 +292,53 @@ class GTA5Capture(object):
     ############### version #1 end #################
 
     sio.savemat(saveFile, {'depth':depth, 'gProjMat': gProjMat})
+
+
+class GTA5DataThread(threading.Thread):
+  """docstring for GTA5DataThread"""
+  def __init__(self, name, log_file_root, save_dir = '', file_list = []):
+    super(GTA5DataThread, self).__init__()
+    self.name = name
+    self.logFileRoot = log_file_root
+    self.saveDir = save_dir
+    self.fileList = file_list
+    self.saveCount = 0
+
+  def setFileList(self, file_list):
+    self.fileList = file_list
+
+  def setSaveDir(self, save_dir):
+    self.saveDir = save_dir
+
+  def getSaveCount(self):
+    return self.saveCount
+
+  def run(self):
+    print('Thread[%s] start working'%self.name)
+    filesToDel = list()
+    gta5Cap = GTA5Capture()
+
+    self.saveCount = 0
+    for fineName in self.fileList:
+      if fineName[-4:] == '.rdc':
+        filePath = os.path.join(self.logFileRoot, fineName)
+        print('Thread[%s] process %s'%(self.name, filePath))
+
+        prefix = fineName[:-4]
+        gta5Cap.openLogFile(filePath)
+        gta5Cap.saveTexture(gta5Cap.getColorBufferId(), os.path.join(self.saveDir, '%s_rgb.jpg'%prefix))
+        gta5Cap.saveTexture(gta5Cap.getDepthBufferId(), os.path.join(self.saveDir, '%s_zbuffer.exr'%prefix))
+        gta5Cap.computeDepth(os.path.join(self.saveDir, '%s_zbuffer.exr'%prefix),
+                              os.path.join(self.saveDir, '%s_depth.mat'%prefix))
+
+        filesToDel.append(filePath)
+        self.saveCount += 1
+
+    gta5Cap.finishCapture()
+
+    for item in filesToDel:
+      os.remove(item)
+      print('Thread[%s] del %s'%(self.name, item))
+      
+    filesToDel.clear() 
+    
