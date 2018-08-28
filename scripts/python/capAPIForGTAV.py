@@ -98,15 +98,22 @@ class GTA5Capture(object):
       return None
 
   def getDepthBufferId(self):
-    passNum = 4
-    potentialPos = [i for i,call in enumerate(self.drawcalls) if call.name.find('%d Targets + Depth)' % passNum) >= 0]
-    if len(potentialPos) < 1:
+    # # below is not suitable for some Graphics configuration
+    # passNum = 4
+    # potentialPos = [i for i,call in enumerate(self.drawcalls) if call.name.find('%d Targets + Depth)' % passNum) >= 0]
+    # if len(potentialPos) < 1:
+    #     return None
+
+    # pChildrenDraws = self.drawcalls[potentialPos[0]].children
+    # pChildDraw = pChildrenDraws[-1] # last child contains all depth
+
+    # all the frame has Dispacth(120, 68, 1) just after depth buffer is constructed.
+    dispachCall = [call for call in self.drawcalls if call.name.find('Dispatch(120') >= 0]
+    if len(dispachCall) < 1:
         return None
-
-    pChildrenDraws = self.drawcalls[potentialPos[0]].children
-    pChildDraw = pChildrenDraws[-1] # last child contains all depth
-
-    self.controller.SetFrameEvent(pChildDraw.eventId, False)
+    depthCall = dispachCall[-1].previous
+    
+    self.controller.SetFrameEvent(depthCall.eventId, False)
 
     state = self.controller.GetPipelineState()
     depthTarget = state.GetDepthTarget()
@@ -128,15 +135,21 @@ class GTA5Capture(object):
       return None
 
     if self.projMat[0,0] == 0:
-      passNum = 4
-      potentialPos = [i for i,call in enumerate(self.drawcalls) if call.name.find('%d Targets + Depth)' % passNum) >= 0]
-      if len(potentialPos) < 1:
-          return -1
+      # passNum = 4
+      # potentialPos = [i for i,call in enumerate(self.drawcalls) if call.name.find('%d Targets + Depth)' % passNum) >= 0]
+      # if len(potentialPos) < 1:
+      #     return -1
 
-      pChildrenDraws = self.drawcalls[potentialPos[0]].children
-      pChildDraw = pChildrenDraws[-1] # last child contains all depth
+      # pChildrenDraws = self.drawcalls[potentialPos[0]].children
+      # pChildDraw = pChildrenDraws[-1] # last child contains all depth
 
-      self.controller.SetFrameEvent(pChildDraw.eventId, False)
+      # all the frame has Dispacth(120, 68, 1) just after depth buffer is constructed.
+      dispachCall = [call for call in self.drawcalls if call.name.find('Dispatch(120') >= 0]
+      if len(dispachCall) < 1:
+          return None
+      depthCall = dispachCall[-1].previous
+      
+      self.controller.SetFrameEvent(depthCall.eventId, False)
 
       self.computeProjMat()
 
