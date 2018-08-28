@@ -54,7 +54,9 @@ class GTA5Capture(object):
 
 
   def closeLogFile(self):
-    self.controller.Shutdown()
+    if not (self.controller is None):
+      self.controller.Shutdown()
+
     self.drawcalls = None
     self.controller = None
     self.projMat = np.zeros([4, 4])
@@ -62,7 +64,8 @@ class GTA5Capture(object):
 
   def finishCapture(self):
     self.closeLogFile()
-    self.cap.Shutdown()
+    if not (self.cap is None):
+      self.cap.Shutdown()
 
 
   def getDrawcalls(self):
@@ -89,13 +92,16 @@ class GTA5Capture(object):
     outTargets = state.GetOutputTargets()
     colorbuffers = [t for t in outTargets if str(t.resourceId) != '0']
 
-    return colorbuffers[0].resourceId
+    if len(colorbuffers) > 0:
+      return colorbuffers[0].resourceId
+    else:
+      return None
 
   def getDepthBufferId(self):
     passNum = 4
     potentialPos = [i for i,call in enumerate(self.drawcalls) if call.name.find('%d Targets + Depth)' % passNum) >= 0]
     if len(potentialPos) < 1:
-        return -1
+        return None
 
     pChildrenDraws = self.drawcalls[potentialPos[0]].children
     pChildDraw = pChildrenDraws[-1] # last child contains all depth
@@ -109,7 +115,7 @@ class GTA5Capture(object):
     if self.projMat[0,0] == 0:
       self.computeProjMat()
 
-    if str(depthTarget.resourceId) == '0':
+    if str(depthTarget.resourceId) == '0' or depthTarget is None:
       print ('{} has no depth target'.format(self.fileName))
       return None
     else:
@@ -119,7 +125,7 @@ class GTA5Capture(object):
   def getProjMatrix(self):
     if self.controller is None:
       print('open log file first.')
-      return
+      return None
 
     if self.projMat[0,0] == 0:
       passNum = 4
@@ -134,7 +140,10 @@ class GTA5Capture(object):
 
       self.computeProjMat()
 
-    return self.projMat
+    if self.projMat[0,0] == 0:
+      return None
+    else:
+      return self.projMat
 
 
   def computeProjMat(self):
@@ -178,6 +187,10 @@ class GTA5Capture(object):
 
 
   def saveTexture(self, ResourceId, saveFile):
+    if ResourceId is None:
+      print('saveTexture resourceId None!!!')
+      return False
+
     saveData = rd.TextureSave()
     saveData.resourceId = ResourceId
     # saveData.comp = rd.CompType.UNorm
@@ -252,6 +265,8 @@ class GTA5Capture(object):
                           [0, 0, 1, 0],
                           [0, 0, 0, 1]])
     gProjMat = self.getProjMatrix()
+    if gProjMat is None:
+      return
     gProjMatInv = gProjMat.I
 
     camCoords = gProjMatInv*wind2NDCMat*windCoords # matrix dot
@@ -326,10 +341,14 @@ class GTA5DataThread(threading.Thread):
 
         prefix = fineName[:-4]
         gta5Cap.openLogFile(filePath)
-        gta5Cap.saveTexture(gta5Cap.getColorBufferId(), os.path.join(self.saveDir, '%s_rgb.jpg'%prefix))
-        gta5Cap.saveTexture(gta5Cap.getDepthBufferId(), os.path.join(self.saveDir, '%s_zbuffer.exr'%prefix))
-        gta5Cap.computeDepth(os.path.join(self.saveDir, '%s_zbuffer.exr'%prefix),
-                              os.path.join(self.saveDir, '%s_depth.mat'%prefix))
+        gta5Cap.saveTexture(gta5Cap.getColorBufferId(), 
+                              os.path.join(self.saveDir, '%s_rgb.jpg'%prefix))
+        depthOk = gta5Cap.saveTexture(gta5Cap.getDepthBufferId(), 
+                                        os.path.join(self.saveDir, '%s_zbuffer.exr'%prefix))
+        print('depthOk', str(depthOk))
+        if depthOk:
+          gta5Cap.computeDepth(os.path.join(self.saveDir, '%s_zbuffer.exr'%prefix),
+                                os.path.join(self.saveDir, '%s_depth.mat'%prefix))
 
         filesToDel.append(filePath)
         self.saveCount += 1

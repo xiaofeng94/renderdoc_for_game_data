@@ -9,12 +9,14 @@ isActive = True
 
 log_file_root = 'F:/GTAVTempCaptures'
 thread_num = 3
-save_roots = ['C:/GTA5_Data', 'C:/GTA5_Data', 'C:/GTA5_Data']
+save_roots = ['E:/GTA5_Data/walk', 'C:/GTA5_Data/walk', 'E:/GTA5_Data/walk']
 
 # when file count > save_num, extract data from those log files
-save_num = 15
+save_num = 299
 totalSaveCount = 0
-
+# after counting file number max_count times,
+# continue to process log files of which the number is less than save_num
+max_count = 900
 
 def safeClose(event):
   global isActive
@@ -31,6 +33,7 @@ if __name__ == '__main__':
     if not os.path.exists(saveDir):
       os.makedirs(saveDir)
 
+  fileNumCount = 0
   while isActive:
     curFileCount = 0
     currFileList = os.listdir(log_file_root)
@@ -38,12 +41,16 @@ if __name__ == '__main__':
       if fineName[-4:] == '.rdc':
         curFileCount += 1
 
+    fileNumCount += 1
+
     startT = time.time()
-    if curFileCount > save_num:
+    if curFileCount > save_num or fileNumCount >= max_count:
+      lastThreadSaveNum = min(curFileCount, save_num)
+
       dataThreads.clear()
       for idx in range(thread_num):
         start_idx = filesForThread*idx
-        end_idx = min(filesForThread*(idx+1), save_num)
+        end_idx = min(filesForThread*(idx+1), lastThreadSaveNum)
 
         dataThreads.append(GTA5DataThread(str(idx), log_file_root))
 
@@ -61,10 +68,12 @@ if __name__ == '__main__':
       for idx in range(thread_num):
         tempCount += dataThreads[idx].getSaveCount()
 
-      print('Processing time: %f'%((time.time() - startT)/tempCount))
+      print('Processing time: %f'%( (time.time() - startT)/max(tempCount,1) ))
 
       totalSaveCount += tempCount
       print('Total save count: %d'%totalSaveCount)
+
+      fileNumCount = 0
 
     else:
       print('Curr file count: %s (press q to quit)'%curFileCount)
