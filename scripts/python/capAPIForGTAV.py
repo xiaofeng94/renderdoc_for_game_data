@@ -26,10 +26,10 @@ class GTA5Capture(object):
     self.drawcalls = None
     self.controller = None
     self.projMat = np.zeros([4, 4])
-    self.isOpen = False  # whether a file has been opened
+    # self.isOpen = False  # whether a file has been opened
 
   def openLogFile(self, filename):
-    if self.isOpen:
+    if self.isFileOpened():
       self.closeLogFile()
 
     self.fileName = filename
@@ -50,56 +50,93 @@ class GTA5Capture(object):
       raise RuntimeError("Couldn't initialise replay: " + str(status))
 
     self.getDrawcalls()
-    self.isOpen = True
+    # self.isOpen = True
 
 
   def closeLogFile(self):
-    if not (self.controller is None):
+    if self.controller is not None:
       self.controller.Shutdown()
 
     self.drawcalls = None
     self.controller = None
     self.projMat = np.zeros([4, 4])
-    self.isOpen = False
+    # self.isOpen = False
 
   def finishCapture(self):
     self.closeLogFile()
-    if not (self.cap is None):
+    if self.cap is not None:
       self.cap.Shutdown()
 
+    self.cap = None
+
+  def isFileOpened(self):
+    if self.controller is None:
+      return False
+    if self.cap is None:
+      return False
+
+    return True
 
   def getDrawcalls(self):
-    # this call is very important for capturing data
-    if self.drawcalls == None:
+    if self.isFileOpened():
+      # this call is very important for capturing data
       self.controller.AddFakeMarkers()
       self.drawcalls = self.controller.GetDrawcalls()
-
-    # print('drawcall num: %d'%len(self.drawcalls))
-    return self.drawcalls
+      return self.drawcalls
+    else:
+      print('open log file first.')
+      return list()
 
 
   def getColorBufferId(self):
-    potentialPassIds = [i for i,call in enumerate(self.drawcalls) if call.name.find('Draw(3)') >= 0]
-    # assert(len(potentialPassIds) > 1, 'Found not enough potential final passes for GTAV.')
-    finalPassId = potentialPassIds[-2] # last Draw(3) for gta is distorted frame
-    # print('finalPassId: %d'%finalPassId)
+    if not self.isFileOpened():
+      print('open log file first.')
+      return None
 
-    finalEventId = self.drawcalls[finalPassId].eventId
-    # important!!
+    # the input of last draw(3) is the desired one
+    potentialCalls = [call for call in self.drawcalls if call.name.find('Draw(3)') >= 0]
+    
+    finalCall = potentialCalls[-1]
+    finalEventId = finalCall.eventId
+
     self.controller.SetFrameEvent(finalEventId, False)
 
-    state = self.controller.GetPipelineState()
-    outTargets = state.GetOutputTargets()
-    colorbuffers = [t for t in outTargets if str(t.resourceId) != '0']
-
-    if len(colorbuffers) > 0:
-      return colorbuffers[0].resourceId
+    inputRes = self.getInputResources()
+    if len(inputRes) > 0:
+      return inputRes[0].resourceId
     else:
       return None
 
-  def getInputResources(self):
-    if self.controller is None:
+
+  def getHDRBufferId(self):
+    if not self.isFileOpened():
+      print('open log file first.')
       return None
+
+    # depending on AA techniques, there are less or more draw(3)
+    # the one with HDRSamplerAA is get
+    potentialCalls = [call for call in self.drawcalls if ('Draw(3)' in call.name)]
+    
+    max_indx_count = 10
+    tempCall = potentialCalls[-1]
+    for idx in range(max_indx_count):
+      tempCall = tempCall.previous
+      if 'Draw(3)' not in tempCall.name:
+        continue
+
+      self.controller.SetFrameEvent(tempCall.eventId, False)
+      inputRes = self.getInputResources()
+
+      if len(inputRes) > 2:
+        return inputRes[2].resourceId
+
+    return None
+
+
+  def getInputResources(self):
+    if not self.isFileOpened():
+      print('open log file first.')
+      return list()
 
     state = self.controller.GetPipelineState()
     stage = rd.ShaderStage.Pixel
@@ -117,7 +154,7 @@ class GTA5Capture(object):
       # bindPoint in readOnlyRes seems identical to index of the position
       if readOnlyRes[key].bindPoint.bind == key:
         resArray = readOnlyRes[key].resources
-        
+
         # gui only take the frist element in resArray for efficiency.
         inResList.append(resArray[0])
       else:
@@ -131,21 +168,36 @@ class GTA5Capture(object):
     return inResList
 
   def getDepthBufferId(self):
-    # # below is not suitable for some Graphics configuration
-    # passNum = 4
-    # potentialPos = [i for i,call in enumerate(self.drawcalls) if call.name.find('%d Targets + Depth)' % passNum) >= 0]
-    # if len(potentialPos) < 1:
-    #     return None
-
-    # pChildrenDraws = self.drawcalls[potentialPos[0]].children
-    # pChildDraw = pChildrenDraws[-1] # last child contains all depth
-
-    # all the frame has Dispacth(120, 68, 1) just after depth buffer is constructed.
-    dispachCall = [call for call in self.drawcalls if call.name.find('Dispatch(120') >= 0]
-    if len(dispachCall) < 1:
-        return None
-    depthCall = dispachCall[-1].previous
+    if not self.isFileOpened():
+      print('open log file first.')
+      return None
     
+    # # all the frame has Dispacth(120, 68, 1) just after depth buffer is constructed.
+    # dispachCall = [call for call in self.drawcalls if call.name.find('Dispatch(120') >= 0]
+    # if len(dispachCall) < 1:
+    #     return None
+    # depthCall = dispachCall[-1].previous
+
+    # depth buffer before Dispacth(120, 68, 1) is not complete where the object is transparent.
+    # complete depth buffer lies in Draw(6) which is just behind the Dispatch(32, ...
+    dispatch32 = None
+    for call in self.drawcalls:
+      if 'Dispatch(32' in call.name:
+        dispatch32 = call
+        break
+
+    depthCall = None
+    if dispatch32 is not None:
+      tempCall = dispatch32
+      while tempCall.next:
+        tempCall = tempCall.next
+        if 'Draw(6)' in tempCall.name:
+          depthCall = tempCall
+          break
+
+    if 'Draw(6)' in depthCall.next.name:
+      depthCall = depthCall.next
+
     self.controller.SetFrameEvent(depthCall.eventId, False)
 
     state = self.controller.GetPipelineState()
@@ -163,7 +215,7 @@ class GTA5Capture(object):
 
 
   def getProjMatrix(self):
-    if self.controller is None:
+    if not self.isFileOpened():
       print('open log file first.')
       return None
 
@@ -193,9 +245,9 @@ class GTA5Capture(object):
 
 
   def computeProjMat(self):
-    if self.controller is None:
+    if not self.isFileOpened():
       print('open log file first.')
-      return
+      return None
 
     state = self.controller.GetPipelineState()
     entry = state.GetShaderEntryPoint(rd.ShaderStage.Pixel)
@@ -233,6 +285,10 @@ class GTA5Capture(object):
 
 
   def saveTexture(self, ResourceId, saveFile):
+    if not self.isFileOpened():
+      print('open log file first.')
+      return None
+
     if ResourceId is None:
       return False
 
@@ -351,7 +407,7 @@ class GTA5Capture(object):
     #     depth[x_i, y_i] = np.linalg.norm(camCoord[:3])
     ############### version #1 end #################
 
-    sio.savemat(saveFile, {'depthNDC':depthNDC, 'depth':depth, 'gProjMat': gProjMat})
+    sio.savemat(saveFile, {'depth':np.array(depth, dtype=np.float32), 'gProjMat': gProjMat})
 
 
 class GTA5DataThread(threading.Thread):
