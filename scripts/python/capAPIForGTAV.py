@@ -97,6 +97,39 @@ class GTA5Capture(object):
     else:
       return None
 
+  def getInputResources(self):
+    if self.controller is None:
+      return None
+
+    state = self.controller.GetPipelineState()
+    stage = rd.ShaderStage.Pixel
+
+    mappings = state.GetBindpointMapping(stage)
+    readOnlyRes = state.GetReadOnlyResources(stage)
+
+    if mappings is None:
+      return list()
+    inMappings = mappings.readOnlyResources
+
+    inResList = list()
+    for inMap in inMappings:
+      key = inMap.bind
+      # bindPoint in readOnlyRes seems identical to index of the position
+      if readOnlyRes[key].bindPoint.bind == key:
+        resArray = readOnlyRes[key].resources
+        
+        # gui only take the frist element in resArray for efficiency.
+        inResList.append(resArray[0])
+      else:
+        print('unordered readOnlyRes !!')
+        for idx in range(len(readOnlyRes)):
+          if readOnlyRes[idx].bindPoint.bind == key:
+            resArray = readOnlyRes[idx].resources
+            inResList.append(resArray[0])
+            break
+
+    return inResList
+
   def getDepthBufferId(self):
     # # below is not suitable for some Graphics configuration
     # passNum = 4
@@ -201,7 +234,6 @@ class GTA5Capture(object):
 
   def saveTexture(self, ResourceId, saveFile):
     if ResourceId is None:
-      print('saveTexture resourceId None!!!')
       return False
 
     saveData = rd.TextureSave()
@@ -258,7 +290,7 @@ class GTA5Capture(object):
     pt = Imath.PixelType(Imath.PixelType.FLOAT)
     depthstr = exrFile.channel('D', pt) # S for stencil and D for depth in channels
     depthNDC = np.fromstring(depthstr, dtype = np.float32)
-
+    depthNDC.shape = (size[1], size[0])
     exrFile.close()
 
     # convert NDC coordinate to camera coordinate and get depth
@@ -271,7 +303,7 @@ class GTA5Capture(object):
         pos = x_i*size[0] + y_i
         windCoords[0, pos] = x_i
         windCoords[1, pos] = y_i
-        windCoords[2, pos] = depthNDC[pos]
+        windCoords[2, pos] = depthNDC[x_i,y_i]
 
     wind2NDCMat = np.mat([[2/size[1], 0, 0, -1], 
                           [0, -2/size[0], 0, 1],
@@ -319,7 +351,7 @@ class GTA5Capture(object):
     #     depth[x_i, y_i] = np.linalg.norm(camCoord[:3])
     ############### version #1 end #################
 
-    sio.savemat(saveFile, {'depth':depth, 'gProjMat': gProjMat})
+    sio.savemat(saveFile, {'depthNDC':depthNDC, 'depth':depth, 'gProjMat': gProjMat})
 
 
 class GTA5DataThread(threading.Thread):
@@ -358,10 +390,11 @@ class GTA5DataThread(threading.Thread):
                               os.path.join(self.saveDir, '%s_rgb.jpg'%prefix))
         depthOk = gta5Cap.saveTexture(gta5Cap.getDepthBufferId(), 
                                         os.path.join(self.saveDir, '%s_zbuffer.exr'%prefix))
-        print('depthOk', str(depthOk))
         if depthOk:
           gta5Cap.computeDepth(os.path.join(self.saveDir, '%s_zbuffer.exr'%prefix),
                                 os.path.join(self.saveDir, '%s_depth.mat'%prefix))
+        else:
+          print('Thread[%s] No depth target!!'%self.name)
 
         filesToDel.append(filePath)
         self.saveCount += 1
