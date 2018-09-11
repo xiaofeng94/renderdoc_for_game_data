@@ -7,12 +7,12 @@ import os, time
 
 isActive = True
 
-log_file_root = 'F:/GTAVTempCaptures'
-thread_num = 3
+log_file_root = 'F:/GTAVTempCaptures' #'F:/GTAVTempCaptures'
+thread_num = 1
 save_roots = ['E:/GTA5_Data/walk', 'C:/GTA5_Data/walk', 'E:/GTA5_Data/walk']
 
 # when file count > save_num, extract data from those log files
-save_num = 299
+save_num = 249
 totalSaveCount = 0
 # after counting file number max_count times,
 # continue to process log files of which the number is less than save_num
@@ -21,7 +21,6 @@ max_count = 900
 def safeClose(event):
   global isActive
   isActive = False
-
 
 if __name__ == '__main__':
   keyboard.on_release_key('q', safeClose)
@@ -77,7 +76,7 @@ if __name__ == '__main__':
 
     else:
       print('Curr file count: %s (press q to quit)'%curFileCount)
-      time.sleep(1)
+      time.sleep(2)
 
   print('quit data procesing..')
   keyboard.unhook_all()
