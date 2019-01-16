@@ -9,7 +9,7 @@ isActive = True
 
 log_file_root = 'F:/GTAVTempCaptures' #'F:/GTAVTempCaptures'
 thread_num = 1
-save_roots = ['E:/GTA5_Data/walk', 'C:/GTA5_Data/walk', 'E:/GTA5_Data/walk']
+save_roots = ['D:/GTA5_Data/walk', 'C:/GTA5_Data/walk', 'E:/GTA5_Data/walk']
 
 # when file count > save_num, extract data from those log files
 save_num = 249

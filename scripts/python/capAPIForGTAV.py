@@ -172,31 +172,35 @@ class GTA5Capture(object):
       print('open log file first.')
       return None
     
-    # # all the frame has Dispacth(120, 68, 1) just after depth buffer is constructed.
-    # dispachCall = [call for call in self.drawcalls if call.name.find('Dispatch(120') >= 0]
-    # if len(dispachCall) < 1:
-    #     return None
-    # depthCall = dispachCall[-1].previous
+    # all the frame has Dispacth(120, 68, 1) just after depth buffer is constructed.
+    dispachCall = [call for call in self.drawcalls if call.name.find('Dispatch(120') >= 0]
+    if len(dispachCall) < 1:
+        return None
+    depthCall = dispachCall[-1].previous
 
+    ## however, depth for transparent object should not be considered in fog simulation
     # depth buffer before Dispacth(120, 68, 1) is not complete where the object is transparent.
     # complete depth buffer lies in Draw(6) which is just behind the Dispatch(32, ...
-    dispatch32 = None
-    for call in self.drawcalls:
-      if 'Dispatch(32' in call.name:
-        dispatch32 = call
-        break
+    # dispatch32 = None
+    # for call in self.drawcalls:
+    #   if 'Dispatch(32' in call.name:
+    #     dispatch32 = call
+    #     break
 
-    depthCall = None
-    if dispatch32 is not None:
-      tempCall = dispatch32
-      while tempCall.next:
-        tempCall = tempCall.next
-        if 'Draw(6)' in tempCall.name:
-          depthCall = tempCall
-          break
+    # depthCall = None
+    # if dispatch32 is not None:
+    #   tempCall = dispatch32
+    #   while tempCall.next:
+    #     tempCall = tempCall.next
+    #     if 'Draw(6)' in tempCall.name:
+    #       depthCall = tempCall
+    #       break
 
-    if 'Draw(6)' in depthCall.next.name:
-      depthCall = depthCall.next
+    # if depthCall is None:
+    #   return None
+
+    # if 'Draw(6)' in depthCall.next.name:
+    #   depthCall = depthCall.next
 
     self.controller.SetFrameEvent(depthCall.eventId, False)
 
@@ -228,15 +232,14 @@ class GTA5Capture(object):
       # pChildrenDraws = self.drawcalls[potentialPos[0]].children
       # pChildDraw = pChildrenDraws[-1] # last child contains all depth
 
-      # all the frame has Dispacth(120, 68, 1) just after depth buffer is constructed.
+      # all the frame has Dispacth(x, 68, 1) just after depth buffer is constructed.
+      # Dispacth(x seems to be different in some equipments
       dispachCall = [call for call in self.drawcalls if call.name.find('Dispatch(120') >= 0]
       if len(dispachCall) < 1:
           return None
-      # depthCall = dispachCall[-1].previous
       depthCall = dispachCall[-1]
       
       self.controller.SetFrameEvent(depthCall.eventId, False)
-
       self.computeProjMat()
 
     if self.projMat[0,0] == 0:
@@ -290,7 +293,7 @@ class GTA5Capture(object):
   def saveTexture(self, ResourceId, saveFile):
     if not self.isFileOpened():
       print('open log file first.')
-      return None
+      return False
 
     if ResourceId is None:
       return False
@@ -369,6 +372,7 @@ class GTA5Capture(object):
                           [0, 0, 1, 0],
                           [0, 0, 0, 1]])
     gProjMat = self.getProjMatrix()
+
     if gProjMat is None:
       print('No ProjMat!!')
       return
