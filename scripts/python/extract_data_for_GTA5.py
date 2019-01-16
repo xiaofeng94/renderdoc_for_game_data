@@ -12,11 +12,11 @@ thread_num = 1
 save_roots = ['D:/GTA5_Data/walk', 'C:/GTA5_Data/walk', 'E:/GTA5_Data/walk']
 
 # when file count > save_num, extract data from those log files
-save_num = 249
+save_num = 200
 totalSaveCount = 0
 # after counting file number max_count times,
 # continue to process log files of which the number is less than save_num
-max_count = 900
+max_count = 100
 
 def safeClose(event):
   global isActive
@@ -43,7 +43,7 @@ if __name__ == '__main__':
     fileNumCount += 1
 
     startT = time.time()
-    if curFileCount > save_num or fileNumCount >= max_count:
+    if curFileCount >= save_num or fileNumCount >= max_count:
       lastThreadSaveNum = min(curFileCount, save_num)
 
       dataThreads.clear()

@@ -2,7 +2,7 @@ import sys
 if sys.version_info < (3, 4):
   raise RuntimeError('At least Python 3.4 is required')
 
-import os
+import os, struct
 
 sys.path.append('E:\\renderdoc\\x64\\Release\\pymodules')
 os.environ["PATH"] += os.pathsep + os.path.abspath('E:/renderdoc/x64/Release')
@@ -167,6 +167,45 @@ class GTA5Capture(object):
 
     return inResList
 
+  def getDepthData(self):
+    depthId = self.getDepthBufferId()
+    depthRaw = self.controller.GetTextureData(depthId, 0, 0)
+
+    # TODO: get the height and width automatically
+    height, width = (1080, 1920)
+
+    # convert NDC coordinate to camera coordinate and get depth
+    windCoords = np.mat(np.ones((4, height*width)))
+    for y_i in range(height):
+      for x_i in range(width):
+        pos = y_i*width+x_i
+        windCoords[0, pos] = x_i
+        windCoords[1, pos] = y_i
+        r_dp, c_dp = (y_i, x_i)
+        byte_start = 8*(r_dp*width+c_dp)
+        windCoords[2, pos] = struct.unpack('f', depthRaw[byte_start:byte_start+4])[0]
+
+    wind2NDCMat = np.mat([[2/width, 0, 0, -1], 
+                          [0, -2/height, 0, 1],
+                          [0, 0, 1, 0],
+                          [0, 0, 0, 1]])
+    gProjMat = self.getProjMatrix()
+
+    if gProjMat is None:
+      return
+    gProjMatInv = gProjMat.I
+
+    camCoords = gProjMatInv*wind2NDCMat*windCoords # matrix dot
+    camCoords[0,:] = camCoords[0,:]/camCoords[3,:]
+    camCoords[1,:] = camCoords[1,:]/camCoords[3,:]
+    camCoords[2,:] = camCoords[2,:]/camCoords[3,:]
+
+    depth = np.linalg.norm(camCoords, axis=0)
+    depth.shape = (height, width)
+
+    return depth
+
+
   def getDepthBufferId(self):
     if not self.isFileOpened():
       print('open log file first.')
@@ -206,10 +245,6 @@ class GTA5Capture(object):
 
     state = self.controller.GetPipelineState()
     depthTarget = state.GetDepthTarget()
-
-    # # get projection matrix
-    # if self.projMat[0,0] == 0:
-    #   self.computeProjMat()
 
     if str(depthTarget.resourceId) == '0' or depthTarget is None:
       print ('{} has no depth target'.format(self.fileName))
@@ -279,13 +314,6 @@ class GTA5Capture(object):
 
     if hasPVW and hasVW:
       self.projMat = np.mat(PVW)*np.mat(VW).I
-      # print('gWorldViewProj')
-      # print(PVW)
-      # print('gWorldView')
-      # print(VW)
-      # print('gProj')
-      # print(self.projMat)
-      # print('--- end --')
     else:
       self.projMat = np.zeros([4, 4])
 
@@ -344,6 +372,7 @@ class GTA5Capture(object):
     return True
 
   def computeDepth(self, DepthExrFile, saveFile):
+    # deprived, use getDepthData instead
     exrFile = OpenEXR.InputFile(DepthExrFile)
 
     dw = exrFile.header()['dataWindow']
@@ -449,21 +478,25 @@ class GTA5DataThread(threading.Thread):
         print('Thread[%s] process %s'%(self.name, filePath))
 
         prefix = fineName[:-4]
-        exrFilePath = os.path.join(self.saveDir, '%s_zbuffer.exr'%prefix)
         gta5Cap.openLogFile(filePath)
         gta5Cap.saveTexture(gta5Cap.getColorBufferId(), 
                             os.path.join(self.saveDir, '%s_rgb.jpg'%prefix))
         gta5Cap.saveTexture(gta5Cap.getHDRBufferId(), 
                             os.path.join(self.saveDir, '%s_hdr.hdr'%prefix))
-        depthOk = gta5Cap.saveTexture(gta5Cap.getDepthBufferId(), exrFilePath)
-        if depthOk:
-          gta5Cap.computeDepth(exrFilePath, 
-                            os.path.join(self.saveDir, '%s_depth.mat'%prefix))
-        else:
-          print('Thread[%s] No depth target!!'%self.name)
+        sio.savemat(os.path.join(self.saveDir, '%s_depth.mat'%prefix), 
+                                {'depth':np.array(gta5Cap.getDepthData(), dtype=np.float32), 
+                                'gProjMat': gta5Cap.getProjMatrix()})
+
+        exrFilePath = os.path.join(self.saveDir, '%s_zbuffer.exr'%prefix)
+        # depthOk = gta5Cap.saveTexture(gta5Cap.getDepthBufferId(), exrFilePath)
+        # if depthOk:
+        #   gta5Cap.computeDepth(exrFilePath, 
+        #                     os.path.join(self.saveDir, '%s_depth.mat'%prefix))
+        # else:
+        #   print('Thread[%s] No depth target!!'%self.name)
 
         filesToDel.append(filePath)
-        filesToDel.append(exrFilePath)
+        # filesToDel.append(exrFilePath)
         self.saveCount += 1
 
     gta5Cap.finishCapture()
