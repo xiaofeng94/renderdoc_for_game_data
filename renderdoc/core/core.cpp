@@ -597,7 +597,7 @@ void RenderDoc::Tick()
   
   if (auto_caps_state)
   {
-      if (caps_interval_count % 59 == 0)
+      if (caps_interval_count > 60)
       {
           TriggerCapture(1);
           caps_interval_count = 0;
