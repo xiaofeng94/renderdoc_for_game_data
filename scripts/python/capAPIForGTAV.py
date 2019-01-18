@@ -26,7 +26,6 @@ class GTA5Capture(object):
     self.drawcalls = None
     self.controller = None
     self.projMat = np.zeros([4, 4])
-    # self.isOpen = False  # whether a file has been opened
 
   def openLogFile(self, filename):
     if self.isFileOpened():
@@ -40,9 +39,11 @@ class GTA5Capture(object):
     # Make sure the file opened successfully
     if status != rd.ReplayStatus.Succeeded:
       print("Couldn't open file: " + str(status))
+      return False
     # Make sure we can replay
     if not self.cap.LocalReplaySupport():
       print("Capture cannot be replayed")
+      return False
 
     # Initialise the replay
     status, self.controller = self.cap.OpenCapture(None)
@@ -50,7 +51,7 @@ class GTA5Capture(object):
       print("Couldn't initialise replay: " + str(status))
 
     self.getDrawcalls()
-    # self.isOpen = True
+    return True
 
 
   def closeLogFile(self):
@@ -168,6 +169,10 @@ class GTA5Capture(object):
     return inResList
 
   def getDepthData(self):
+    if not self.isFileOpened():
+      print('open log file first.')
+      return np.zeros([0,0])
+
     depthId = self.getDepthBufferId()
     depthRaw = self.controller.GetTextureData(depthId, 0, 0)
 
@@ -191,8 +196,8 @@ class GTA5Capture(object):
                           [0, 0, 0, 1]])
     gProjMat = self.getProjMatrix()
 
-    if gProjMat is None:
-      return
+    if len(gProjMat) == 0:
+      return np.zeros([0,0])
     gProjMatInv = gProjMat.I
 
     camCoords = gProjMatInv*wind2NDCMat*windCoords # matrix dot
@@ -256,7 +261,7 @@ class GTA5Capture(object):
   def getProjMatrix(self):
     if not self.isFileOpened():
       print('open log file first.')
-      return None
+      return np.zeros([0,0])
 
     if self.projMat[0,0] == 0:
       # passNum = 4
@@ -271,14 +276,15 @@ class GTA5Capture(object):
       # Dispacth(x seems to be different in some equipments
       dispachCall = [call for call in self.drawcalls if call.name.find('Dispatch(120') >= 0]
       if len(dispachCall) < 1:
-          return None
+          return np.zeros([0,0])
       depthCall = dispachCall[-1]
       
       self.controller.SetFrameEvent(depthCall.eventId, False)
       self.computeProjMat()
 
     if self.projMat[0,0] == 0:
-      return None
+      print('No projection matrix')
+      return np.zeros([0,0])
     else:
       return self.projMat
 
@@ -286,7 +292,7 @@ class GTA5Capture(object):
   def computeProjMat(self):
     if not self.isFileOpened():
       print('open log file first.')
-      return None
+      return
 
     state = self.controller.GetPipelineState()
     entry = state.GetShaderEntryPoint(rd.ShaderStage.Pixel)
@@ -402,7 +408,7 @@ class GTA5Capture(object):
                           [0, 0, 0, 1]])
     gProjMat = self.getProjMatrix()
 
-    if gProjMat is None:
+    if len(gProjMat) == 0:
       print('No ProjMat!!')
       return
     gProjMatInv = gProjMat.I
@@ -478,26 +484,29 @@ class GTA5DataThread(threading.Thread):
         print('Thread[%s] process %s'%(self.name, filePath))
 
         prefix = fineName[:-4]
-        gta5Cap.openLogFile(filePath)
-        gta5Cap.saveTexture(gta5Cap.getColorBufferId(), 
-                            os.path.join(self.saveDir, '%s_rgb.jpg'%prefix))
-        gta5Cap.saveTexture(gta5Cap.getHDRBufferId(), 
-                            os.path.join(self.saveDir, '%s_hdr.hdr'%prefix))
-        sio.savemat(os.path.join(self.saveDir, '%s_depth.mat'%prefix), 
-                                {'depth':np.array(gta5Cap.getDepthData(), dtype=np.float32), 
-                                'gProjMat': gta5Cap.getProjMatrix()})
+        if gta5Cap.openLogFile(filePath) and (len(gta5Cap.getProjMatrix()) > 0):
+          gta5Cap.saveTexture(gta5Cap.getColorBufferId(), 
+                              os.path.join(self.saveDir, '%s_rgb.jpg'%prefix))
+          gta5Cap.saveTexture(gta5Cap.getHDRBufferId(), 
+                              os.path.join(self.saveDir, '%s_hdr.hdr'%prefix))
+          sio.savemat(os.path.join(self.saveDir, '%s_depth.mat'%prefix), 
+                                  {'depth':np.array(gta5Cap.getDepthData(), dtype=np.float32), 
+                                  'gProjMat': gta5Cap.getProjMatrix()})
 
-        exrFilePath = os.path.join(self.saveDir, '%s_zbuffer.exr'%prefix)
-        # depthOk = gta5Cap.saveTexture(gta5Cap.getDepthBufferId(), exrFilePath)
-        # if depthOk:
-        #   gta5Cap.computeDepth(exrFilePath, 
-        #                     os.path.join(self.saveDir, '%s_depth.mat'%prefix))
-        # else:
-        #   print('Thread[%s] No depth target!!'%self.name)
+          # exrFilePath = os.path.join(self.saveDir, '%s_zbuffer.exr'%prefix)
+          # depthOk = gta5Cap.saveTexture(gta5Cap.getDepthBufferId(), exrFilePath)
+          # if depthOk:
+          #   gta5Cap.computeDepth(exrFilePath, 
+          #                     os.path.join(self.saveDir, '%s_depth.mat'%prefix))
+          # else:
+          #   print('Thread[%s] No depth target!!'%self.name)
+
+          # filesToDel.append(exrFilePath)
+          self.saveCount += 1
+        else:
+          print('Thread[%s] fail to open log file (%s)'%(self.name, fineName))
 
         filesToDel.append(filePath)
-        # filesToDel.append(exrFilePath)
-        self.saveCount += 1
 
     gta5Cap.finishCapture()
 

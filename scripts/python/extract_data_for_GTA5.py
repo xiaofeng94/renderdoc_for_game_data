@@ -7,12 +7,14 @@ import os, time
 
 isActive = True
 
-log_file_root = 'F:/GTAVTempCaptures' #'F:/GTAVTempCaptures'
-thread_num = 1
-save_roots = ['D:/GTA5_Data/walk', 'C:/GTA5_Data/walk', 'E:/GTA5_Data/walk']
+log_file_root = 'G:/on_foot' #'F:/GTAVTempCaptures'
+thread_num = 3
+save_roots = ['F:/GTA5_DATA/on_foot', 
+              'F:/GTA5_DATA/on_foot', 
+              'F:/GTA5_DATA/on_foot']
 
 # when file count > save_num, extract data from those log files
-save_num = 200
+save_num = 240
 totalSaveCount = 0
 # after counting file number max_count times,
 # continue to process log files of which the number is less than save_num
