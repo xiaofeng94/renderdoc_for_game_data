@@ -9,14 +9,30 @@ With this codebase, you can get various intermediate outputs of the rendering pi
 ### Various info in G-Buffer
 You may get the diffuse map, normal map, specular map, irradiance map and depth map as follows.
 
+|<img src="https://github.com/xiaofeng94/renderdoc_for_game_data/blob/v1.x/docs/imgs/outputs/rgb_resized.png" width="300"/>|<img src="https://github.com/xiaofeng94/renderdoc_for_game_data/blob/v1.x/docs/imgs/outputs/depth.png" width="300"/>|<img src="https://github.com/xiaofeng94/renderdoc_for_game_data/blob/v1.x/docs/imgs/outputs/difusse_resized.png" width="300" />|
+|:---:|:---:|:---:|
+|Final Output|Depth Map|Diffuse Map|
+|<img src="https://github.com/xiaofeng94/renderdoc_for_game_data/blob/v1.x/docs/imgs/outputs/noraml_resized.png" width="300"/>|<img src="https://github.com/xiaofeng94/renderdoc_for_game_data/blob/v1.x/docs/imgs/outputs/irradiance_resized.png" width="300"/>|<img src="https://github.com/xiaofeng94/renderdoc_for_game_data/blob/v1.x/docs/imgs/outputs/specular_resized.png" width="300"/>|
+|Normal Map|Irradiance Map|Specular Map|
+
 
 ### HDR and LDR image pairs
 For someone who are interested in data-driven tone mapping and reverse tone mapping, it is a good choice to get HDR and LDR image pairs from the game.
 
+|<img src="https://github.com/xiaofeng94/renderdoc_for_game_data/blob/v1.x/docs/imgs/outputs/rgb_resized.png" width="500"/>|<img src="https://github.com/xiaofeng94/renderdoc_for_game_data/blob/v1.x/docs/imgs/outputs/hdr_resized.png" width="500"/>|
+|:---:|:---:|
+|LDR Output|HDR Output|
+
+### Semantic Label
+With mesh data and their various coordinates, you can even get the masks for amodal isntance semantic segementation where ostackled parts of the object should be labeled in the mask.
+
+|<img src="https://github.com/xiaofeng94/renderdoc_for_game_data/blob/v1.x/docs/imgs/outputs/rgb_resized.png" width="500"/>|<img src="https://github.com/xiaofeng94/renderdoc_for_game_data/blob/v1.x/docs/imgs/outputs/mask_image.png" width="500"/>|
+|:---:|:---:|
+|Original Image|Amodel Mask|
+
 
 ### Foggy image simulation
 With images and corresponding depth, you can get clear and foggy image pairs to faciliate your defogging researches.
-
 
 
 ## Customization for Your own
