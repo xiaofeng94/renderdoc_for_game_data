@@ -23,7 +23,7 @@ For someone who are interested in data-driven tone mapping and reverse tone mapp
 |:---:|:---:|
 |LDR Output|HDR Output|
 
-### Semantic Label
+### Semantic label
 With mesh data and their various coordinates, you can even get the masks for amodal isntance semantic segementation where ostackled parts of the object should be labeled in the mask.
 
 |<img src="https://github.com/xiaofeng94/renderdoc_for_game_data/blob/v1.x/docs/imgs/outputs/rgb_resized.png" width="500"/>|<img src="https://github.com/xiaofeng94/renderdoc_for_game_data/blob/v1.x/docs/imgs/outputs/mask_image.png" width="500"/>|
@@ -40,6 +40,6 @@ With images and corresponding depth, you can get clear and foggy image pairs to 
 |<img src="https://github.com/xiaofeng94/renderdoc_for_game_data/blob/v1.x/docs/imgs/outputs/rgb44472.png" width="500"/>|<img src="https://github.com/xiaofeng94/renderdoc_for_game_data/blob/v1.x/docs/imgs/outputs/dust44472.png" width="500"/>|
 |Original Image|Simulated Dust Image|
 
-## Customization for Your own
+## Customization on your own
 To begain with, you should get to know the rendering pipeline of your target game. For GTAV, you may find useful information in this [Link](http://www.adriancourreges.com/blog/2015/11/02/gta-v-graphics-study/). Then, compile the RenderDoc. Since I have just modified functions of capture and saving to save the depth maps, if you don't need those you may use the original RenderDoc. After that, capture frames you need. Finally, run the processing code in scripts/python to get what you want. I will provide concrete instructions about how to use those scripts and how to modify them. But for now, I'm just quite engaged in my personal stuffs.
 
