@@ -1,7 +1,7 @@
 ## RenderDoc for Game data
 This repo aims to acquire data from commerical games for various vision tasks whose data is difficulty to colloect. Before the start, please get familiar with the great game debugging tool [RenderDoc](https://github.com/baldurk/renderdoc).
 
-It is still under construction and lacks of some instructions and descriptions.
+<!--It is still under construction and lacks of some instructions and descriptions.-->
 
 ## What can you get
 With this codebase, you can get various intermediate outputs of the rendering pipeline of a game, including depth, meshes and textures. Below are some examples from the commercial game GTAV (Grand Theft Auto V). Note that Rockstar Games, the publisher of GTAV, allows non-commerical use of footage from the game as long as certain conditions are met. See the [policy](https://support.rockstargames.com/articles/200153756/Policy-on-posting-copyrighted-Rockstar-Games-material).
