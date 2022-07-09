@@ -44,3 +44,18 @@ With images and corresponding depth, you can get clear and foggy image pairs to 
 To begain with, you should get to know the rendering pipeline of your target game. For GTAV, you may find useful information in this [Link](http://www.adriancourreges.com/blog/2015/11/02/gta-v-graphics-study/). Then, compile the RenderDoc. Since I have just modified functions of capture and saving to save the depth maps, if you don't need those you may use the original RenderDoc. After that, capture frames you need. Finally, run the processing code in scripts/python in cmd (not the shell of RenderDoc).
 
 Run `extract_data_for_GTA5.py` to get LDR, HDR, and depth maps. You may modify the variables `log_file_root` and `save_roots` on your own settings. If something's wrong with `capAPIForGTAV.py`, there may be a update in the rendering pipeline. In this case, you should locate the required data in the pipeline using the GUI of RenderDoc and modify the code accordingly.
+
+
+## Citation
+
+If you find this project useful for your research, please consider citting the following BibTeX entry.
+
+    @article{zhang2021simulation,
+      title={Simulation of Atmospheric Visibility Impairment},
+      author={Zhang, Lin and Zhu, Anqi and Zhao, Shiyu and Zhou, Yicong},
+      journal={IEEE Transactions on Image Processing},
+      volume={30},
+      pages={8713--8726},
+      year={2021},
+      publisher={IEEE}
+    }
